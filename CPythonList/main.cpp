@@ -1,134 +1,58 @@
-///这个版本不好用结果显示如下
-//0 <== Read from MakeList
-//0 《 == Read from ReadList
-//
-
-
-#include <iostream>
-#define PY_SSIZE_T_CLEAN
 #include "Python.h"
-#include "listobject.h"
+//import python36.lib
 
-using namespace std;
-
-//以下是python中的代码
-
-// def MakeList() :
-// 	list_a = [1, 2, 3]
-// 	list_b = [4, 5, 6]
-// 	return list_a, list_b
-// 
-// 	def ReadList(list1) :
-// 	print(list1[0])
-// 	return list1[1]
-
-
-int main()
-{
-
-	Py_SetPythonHome(L"C:/Users/ouc/AppData/Local/Programs/Python/Python37");
-
-	Py_Initialize();	//初始化Python
-
-	//引入头文件
-	PyRun_SimpleString("import sys");
-	PyRun_SimpleString("import numpy as np");
-	//PyRun_SimpleString("import tensorflow as tf");
-
-	//设置python文件存放的文件夹
-	PyRun_SimpleString("sys.path.append('./')");
-
-	PyObject * pModule = NULL;	//python文件名
-	PyObject * pFunc = NULL;	//函数名1
-	PyObject * pFunc2 = NULL;	//函数名2
-
-	pModule = PyImport_ImportModule("testlist");	//加载python文件，文件名不加.py
-
-	if (!pModule)
+int main() {
+	//初始化
+	Py_Initialize();
+	if (Py_IsInitialized())
 	{
-		std::cout << "文件没加载到\n";
-		//exit(0);
+		//导入sys模块
+		PyRun_SimpleString("import sys");
+		PyRun_SimpleString("sys.path.append('./pyScript')");
 	}
-
-	pFunc = PyObject_GetAttrString(pModule, "MakeList");
-
-	if (!pFunc)
+	//导入脚本内的函数
+	PyObject* pModule = PyImport_ImportModule("delaunay");
+	PyObject* pFunSetSeedPoint = PyObject_GetAttrString(pModule, "setSeedPoint");
+	//定义入参和出参
+	PyObject* args = PyTuple_New(2);
+	PyObject* pReturnValue;
+	//两个入参分别为 x,y coordinate of each point
+	PyObject* pyListX = PyList_New(length);
+	PyObject* pyListY = PyList_New(length);
+	for (int i = 0; i < length; i++)
 	{
-		std::cout << "函数1没加载到\n";
-		//exit(0);
+		PyList_SetItem(pyListX, i, PyFloat_FromDouble(seedPoint[i].x()));
+		PyList_SetItem(pyListY, i, PyFloat_FromDouble(seedPoint[i].y()));
 	}
-	PyObject *pArgs = nullptr;
-
-	PyObject *pReturn = PyEval_CallObject(pFunc, 0);
-
-	PyObject *plist1 = nullptr, *plist2 = nullptr;
-
-	if (pReturn&&PyTuple_Check(pReturn)) { //检查是否为List对象
-		plist1 = PyTuple_GetItem(pReturn, 0);
-		plist2 = PyTuple_GetItem(pReturn, 1);
-
-		PyObject *ListItem = PyList_GetItem(plist1, 0);
-		int  nResult = 0;
-
-		PyArg_Parse(ListItem, "i", &nResult);
-		cout << nResult << " <== Read from MakeList\n"; //输出元素
-	}
-	else {
-		cout << "Not a turple" << endl;
-	}
-
-
-	pFunc2 = PyObject_GetAttrString(pModule, "ReadList");
-
-	if (!pFunc2)
+	//构建参数tuple
+	PyTuple_SetItem(args, 0, pyListX);
+	PyTuple_SetItem(args, 1, pyListY);
+	//调用函数，得到返回值
+	if (pModule && pFunSetSeedPoint)
 	{
-		std::cout << "函数2没加载到\n";
-		//exit(0);
+		pReturnValue = PyObject_CallObject(pFunSetSeedPoint, args);
+		//检查是否为List对象
+		if (PyList_Check(pReturnValue))
+		{
+			int SizeOfList = PyList_Size(pReturnValue);//List对象的大小，这里SizeOfList = 3
+			for (int i = 0; i < SizeOfList; i++)
+			{
+				PyObject *ListItem = PyList_GetItem(pReturnValue, i);//获取List对象中的每一个元素
+				int NumOfItems = PyList_Size(ListItem);//List对象子元素的大小
+				for (int Index_k = 0; Index_k < NumOfItems; Index_k++)
+				{
+					PyObject *Item = PyList_GetItem(ListItem, Index_k);//遍历List对象中子元素中的每个元素
+					qDebug() << PyFloat_AsDouble(Item) << "\n "; //输出元素
+					Py_DECREF(Item); //释放空间
+				}
+				Py_DECREF(ListItem); //释放空间
+			}
+		}
+		else
+		{
+			qDebug() << "something wrong when set seed center in python!";
+		}
 	}
 
-	// 	PyObject *pListNew = PyList_New(3);
-	// 	PyList_SetItem(pListNew, 0, Py_BuildValue("i", 99));
-	// 	PyList_SetItem(pListNew, 1, Py_BuildValue("i", 89));
-	// 	PyList_SetItem(pListNew, 2, Py_BuildValue("i", 79));
-
-	pArgs = PyTuple_New(1);
-
-	PyTuple_SetItem(pArgs, 0, plist1);
-
-	PyObject *pReturn2 = PyEval_CallObject(pFunc2, pArgs);
-
-	if (pReturn2)
-	{
-		int  nResult = 0;
-
-		PyArg_Parse(pReturn2, "i", &nResult);
-		cout << nResult << " 《== Read from ReadList\n"; //输出元素
-	}
-
-
-	// 释放new reference的对象
-	Py_DECREF(pArgs);
-	Py_DECREF(pReturn);
-	Py_DECREF(pReturn2);
-	Py_DECREF(plist1);
-	Py_DECREF(plist2);
-	Py_DECREF(pFunc);
-	Py_DECREF(pFunc2);
-	Py_DECREF(pModule);
-
-	//  下面测试直接运行python文件
-	//	std::cout << "result: " << nResult << "\n";
-
-	// 	FILE *pFile = fopen("test1.py", "r");
-	// 
-	// 	PyRun_SimpleFile(pFile, "test1.py");
-	// 
-	// 	fclose(pFile);
-
-	Py_Finalize();    //结束Python
-	int abc;
-	cin >>  abc;
-	return 0;
-	
-
+	Finalize();
 }
